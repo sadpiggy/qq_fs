@@ -19,6 +19,8 @@
  */
 
 #define FUSE_USE_VERSION 31
+#define second
+#define debug
 
 #include <fuse.h>
 #include <stdio.h>
@@ -33,7 +35,7 @@
 
 
 struct mlist** root;
-
+struct mlist* log;
 
 static void *qq_init(struct fuse_conn_info *conn,
                      struct fuse_config *cfg)
@@ -42,6 +44,12 @@ static void *qq_init(struct fuse_conn_info *conn,
     //if(root==NULL)root = new_list();
     (void)conn;
     cfg->kernel_cache = 0;
+
+    #ifdef debug
+    log = insert_list_node(root,"/log","",1,NULL);
+    strcpy(log->value->data,"xiaohaha\n");
+    #endif
+
     return NULL;
 }
 
@@ -199,11 +207,51 @@ static int qq_write(const char *path,
                        const char *buf, size_t size, off_t offset,
                        struct fuse_file_info *fi)
 {
+    #ifdef second
+
+    struct mlist* qq_node = search_list_node(root,path);
+    if(qq_node==NULL)return -ENOMEM;
+    int index;// =   strlen(qq_node->value->data);
+    strcpy(qq_node->value->data + offset, buf);
+
+
+    //qq_node->value->data[offset+strlen(buf)] = '\0';
+
+    //反转
+    if(qq_node->index==1)return size;
+    char* father_name = get_fatherName(path);
+    char* son_name = qq_node->value->fileName;
+    // char source_id = father_name[strlen(father_name)-1];
+    // char target_id = son_name[strlen(father_name)-1];
+    // father_name[strlen(father_name)-1] = target_id;
+    // son_name[strlen(son_name)-1] = source_id; 
+   
+    char* new_path = malloc(50);
+    new_path[0] = '/';
+    strcpy(new_path+1,son_name);
+    index = strlen(new_path);
+    new_path[index] = '/';
+    strcpy(new_path+index+1,father_name);
+    struct mlist* qq_node2 = search_list_node(root,new_path);
+    if (qq_node2==NULL)
+    {
+        qq_node2 = insert_list_node(root,new_path,"",1,NULL);
+    }
+    //index =   strlen(qq_node2->value->data);
+    strcpy(qq_node2->value->data + offset, buf);
+    
+    return size;
+
+    #endif
+
+
+
+   #ifndef second
     struct mlist* qq_node = search_list_node(root,path);
     if(qq_node==NULL)return -ENOMEM;
     int index =   strlen(qq_node->value->data);
-    memcpy(qq_node->value->data + index, buf, size);
-    qq_node->value->data[index+strlen(buf)] = '\0';
+    strcpy(qq_node->value->data + offset, buf);
+    //qq_node->value->data[offset+strlen(buf)] = '\0';
 
     //反转
     //if(qq_node->index==1)return size;
@@ -226,11 +274,10 @@ static int qq_write(const char *path,
         qq_node2 = insert_list_node(root,new_path,"",1,NULL);
     }
     index =   strlen(qq_node2->value->data);
-    memcpy(qq_node2->value->data + index, buf, size);
-    qq_node2->value->data[index+strlen(buf)] = '\0';
-   // memcpy(qq_node->value->data, new_path, strlen(new_path));
+    strcpy(qq_node2->value->data + offset, buf);
     
     return size;
+   #endif
 } 
 
 static int qq_release(const char *path, struct fuse_file_info *fi)
